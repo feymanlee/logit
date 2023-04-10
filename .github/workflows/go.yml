@@ -32,11 +32,11 @@ jobs:
 
       - name: Revive check
         uses: morphy2k/revive-action@v2.5.1
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.go_version == '1.18' }}
 
       - name: Static check
         uses: reviewdog/action-staticcheck@v1
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.go_version == '1.17'  }}
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.go_version == '1.18'  }}
         with:
           github_token: ${{ secrets.github_token }}
           # Change reviewdog reporter if you need [github-pr-check,github-check,github-pr-review].
