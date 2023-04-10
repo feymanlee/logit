@@ -1,5 +1,10 @@
 # logit
 
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/feymanlee/logit?style=flat-square)
+[![Go Report Card](https://goreportcard.com/badge/github.com/feymanlee/logit)](https://goreportcard.com/report/github.com/feymanlee/logit)
+[![Unit-Tests](https://github.com/feymanlee/logit/workflows/Unit-Tests/badge.svg)](https://github.com/feymanlee/logit/actions)
+[![Coverage Status](https://coveralls.io/repos/github/feymanlee/logit/badge.svg?branch=main)](https://coveralls.io/github/feymanlee/logit?branch=main)
+
 logit 简单封装了在日常使用 [zap](https://github.com/uber-go/zap) 打日志时的常用方法。
 
 - 提供快速使用 zap 打印日志的方法，除 zap 的 DPanic 、 DPanicf 方法外所有日志打印方法开箱即用
