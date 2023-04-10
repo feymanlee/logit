@@ -101,7 +101,7 @@ func (l RedisLogger) AfterProcess(ctx context.Context, cmd redis.Cmder) error {
 	logger := l.CtxLogger(ctx)
 	cost := l.getCost(ctx)
 	if err := cmd.Err(); err != nil {
-		logger.Warn("redis trace", zap.String("command", cmd.FullName()), zap.Float64("latency_ms", cost), zap.Error(err))
+		logger.Warn("redis trace", zap.String("command", cmd.FullName()), zap.String("args", cmd.String()), zap.Float64("latency_ms", cost), zap.Error(err))
 	} else {
 		logger.Info("redis trace", zap.String("command", cmd.FullName()), zap.String("args", cmd.String()), zap.Float64("latency_ms", cost))
 	}
