@@ -9,7 +9,7 @@ import (
 
 func TestGlobal(t *testing.T) {
 	c, _ := NewCtxLogger(context.Background(), CloneLogger("test"), "xxx-yyy-zzz")
-	Debug(nil, "Debug nil", zap.Int("k", 1))
+	Debug(context.Background(), "Debug nil", zap.Int("k", 1))
 	Debug(c, "Debug", zap.Int("k", 1))
 	Info(c, "Info")
 	Warn(c, "Warn")

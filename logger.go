@@ -107,7 +107,7 @@ func init() {
 	}
 	baseLogger, err = NewLogger(options)
 	if err != nil {
-		log.Println(err)
+		log.Panicln(err)
 	}
 }
 
@@ -165,7 +165,7 @@ func NewLogger(options Options) (*zap.Logger, error) {
 	// 注册 lumberjack sink ，支持 Outputs 指定为文件时可以使用 lumberjack 对日志文件自动 rotate
 	if options.LumberjackSink != nil {
 		if err := RegisterLumberjackSink(options.LumberjackSink); err != nil {
-			Error(nil, "RegisterSink error", zap.Error(err))
+			return nil, fmt.Errorf("RegisterSink error: %v", err)
 		}
 	}
 	var err error
@@ -191,8 +191,8 @@ func NewLogger(options Options) (*zap.Logger, error) {
 func CloneLogger(name string, fields ...zap.Field) *zap.Logger {
 	rwMutex.RLock()
 	defer rwMutex.RUnlock()
-	copy := *baseLogger
-	clogger := &copy
+	copyLogger := *baseLogger
+	clogger := &copyLogger
 	clogger = clogger.Named(name)
 	if len(fields) > 0 {
 		clogger = clogger.With(fields...)
@@ -226,9 +226,8 @@ func TextLevel() string {
 }
 
 // SetLevel 使用字符串级别设置默认 baseLogger 的 atomic level
-func SetLevel(lvl string) {
-	Warn(nil, "Set logit atomicLevel "+lvl)
-	atomicLevel.UnmarshalText([]byte(strings.ToLower(lvl)))
+func SetLevel(lvl string) error {
+	return atomicLevel.UnmarshalText([]byte(strings.ToLower(lvl)))
 }
 
 // ServerIP 获取当前 IP

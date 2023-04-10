@@ -14,7 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -23,36 +22,39 @@ const (
 	// 默认 caller skip
 	defaultRedisLoggerCallerSkip = 4
 	// 上下文中保存开始时间的 key
-	ctxRedisStartKey = "_log_redis_start_"
+	ctxRedisStartKey CtxKey = "_log_redis_start_"
+	// 默认的 redis 慢查询时间，30ms
+	defaultSlowThreshold = time.Millisecond * 30
 )
 
 type RedisLoggerOptions struct {
-	Name       string
-	CallerSkip int
+	Name          string
+	CallerSkip    int
+	SlowThreshold time.Duration
 }
 
 type RedisLogger struct {
 	name string
-	// 日志级别
-	logLevel zapcore.Level
 	// 指定慢查询时间
 	slowThreshold time.Duration
-	// Trace 方法打印日志是使用的日志 level
-	traceWithLevel zapcore.Level
-	callerSkip     int
-	_logger        *zap.Logger
+	callerSkip    int
+	_logger       *zap.Logger
 }
 
 func NewRedisLogger(opt RedisLoggerOptions) RedisLogger {
 	l := RedisLogger{
-		name:       defaultRedisLoggerName,
-		callerSkip: defaultRedisLoggerCallerSkip,
+		name:          defaultRedisLoggerName,
+		callerSkip:    defaultRedisLoggerCallerSkip,
+		slowThreshold: defaultSlowThreshold,
 	}
 	if opt.CallerSkip != 0 {
 		l.callerSkip = opt.CallerSkip
 	}
 	if opt.Name != "" {
 		l.name = opt.Name
+	}
+	if opt.SlowThreshold > 0 {
+		l.slowThreshold = opt.SlowThreshold
 	}
 	l._logger = CloneLogger(l.name)
 	return l
@@ -82,7 +84,7 @@ func (l RedisLogger) CtxLogger(ctx context.Context) *zap.Logger {
 func (l RedisLogger) BeforeProcess(ctx context.Context, cmd redis.Cmder) (context.Context, error) {
 	if gc, ok := ctx.(*gin.Context); ok {
 		// set start time in gin.Context
-		gc.Set(ctxRedisStartKey, time.Now())
+		gc.Set(string(ctxRedisStartKey), time.Now())
 		return ctx, nil
 	}
 	// set start time in context
@@ -101,9 +103,13 @@ func (l RedisLogger) AfterProcess(ctx context.Context, cmd redis.Cmder) error {
 	logger := l.CtxLogger(ctx)
 	cost := l.getCost(ctx)
 	if err := cmd.Err(); err != nil {
-		logger.Warn("redis trace", zap.String("command", cmd.FullName()), zap.String("args", cmd.String()), zap.Float64("latency_ms", cost), zap.Error(err))
+		logger.Error("redis trace", zap.String("command", cmd.FullName()), zap.String("args", cmd.String()), zap.Float64("latency_ms", cost), zap.Error(err))
 	} else {
-		logger.Info("redis trace", zap.String("command", cmd.FullName()), zap.String("args", cmd.String()), zap.Float64("latency_ms", cost))
+		log := logger.Info
+		if cost > float64(l.slowThreshold) {
+			log = logger.Warn
+		}
+		log("redis trace", zap.String("command", cmd.FullName()), zap.String("args", cmd.String()), zap.Float64("latency_ms", cost))
 	}
 	return nil
 }
@@ -132,11 +138,9 @@ func (l RedisLogger) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmd
 func (l RedisLogger) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) error {
 	logger := l.CtxLogger(ctx)
 	cost := l.getCost(ctx)
-	pipelineCmds := make([]string, 0, len(cmds))
 	pipelineArgs := make([]string, 0, len(cmds))
 	pipelineErrs := make([]error, 0, len(cmds))
 	for _, cmd := range cmds {
-		pipelineCmds = append(pipelineCmds, cmd.FullName())
 		pipelineArgs = append(pipelineArgs, cmd.String())
 		if err := cmd.Err(); err != nil {
 			pipelineErrs = append(pipelineErrs, err)
@@ -161,7 +165,7 @@ func (l RedisLogger) getCost(ctx context.Context) (cost float64) {
 	var startTime time.Time
 	if gc, ok := ctx.(*gin.Context); ok {
 		// set start time in gin.Context
-		startTime = gc.GetTime(ctxRedisStartKey)
+		startTime = gc.GetTime(string(ctxRedisStartKey))
 	} else {
 		startTime = ctx.Value(ctxRedisStartKey).(time.Time)
 	}

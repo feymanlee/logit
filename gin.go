@@ -196,7 +196,7 @@ func GinLoggerWithConfig(conf GinLoggerConfig) gin.HandlerFunc {
 	var skipRegexps []*regexp.Regexp
 	for _, p := range conf.SkipPathRegexps {
 		if r, err := regexp.Compile(p); err != nil {
-			Error(nil, "skip path regexps compile "+p+" error:"+err.Error())
+			panic("skip path regexps compile " + p + " error:" + err.Error())
 		} else {
 			skipRegexps = append(skipRegexps, r)
 		}
