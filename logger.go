@@ -248,7 +248,6 @@ func runAtomicLevelServer(atomicLevel zap.AtomicLevel, options AtomicLevelServer
 	go func() {
 		// curl -X GET http://host:port
 		// curl -X PUT http://host:port -d '{"level":"info"}'
-		Debug(nil, "Running AtomicLevel HTTP server on "+options.Addr+options.Path)
 		urlPath := "/"
 		if options.Path != "" {
 			urlPath = options.Path
@@ -275,7 +274,7 @@ func runAtomicLevelServer(atomicLevel zap.AtomicLevel, options AtomicLevelServer
 			atomicLevel.ServeHTTP(w, r)
 		})
 		if err := http.ListenAndServe(options.Addr, levelServer); err != nil {
-			Error(nil, "logit NewLogger levelServer ListenAndServe error:"+err.Error())
+			panic("logit NewLogger levelServer ListenAndServe error:" + err.Error())
 		}
 	}()
 }
