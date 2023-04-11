@@ -63,7 +63,7 @@ logit.Debug(c, "extra fields demo", logit.ExtraField("k1", "v1", "k2", 2, "k3", 
 
 **详细示例 [example/logit.go](_example/logit.go)**
 
-## 替换默认 log
+## 替换默认 logger
 
 **示例 [example/replace.go](_example/replace.go)**
 
@@ -160,7 +160,7 @@ func main() {
 
 ```
 
-**示例 [example/gorm.go](_example/gorm.go)**
+**示例 [example/gorm.go](_example/redis.go)**
 
 ## gin middleware: GinLogger
 
