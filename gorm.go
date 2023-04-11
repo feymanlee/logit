@@ -151,6 +151,6 @@ func NewGormLogger(opt GormLoggerOptions) (GormLogger, error) {
 		EncoderConfig:     opt.EncoderConfig,
 		LumberjackSink:    opt.LumberjackSink,
 	})
-	l._logger = l._logger.WithOptions(zap.AddCallerSkip(l.callerSkip)).Named(opt.Name)
+	l._logger = l._logger.Named(l.name)
 	return l, err
 }

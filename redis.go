@@ -88,7 +88,7 @@ func NewRedisLogger(opt RedisLoggerOptions) (RedisLogger, error) {
 		EncoderConfig:     opt.EncoderConfig,
 		LumberjackSink:    opt.LumberjackSink,
 	})
-	l._logger = l._logger.Named(opt.Name).WithOptions(zap.AddCallerSkip(l.callerSkip))
+	l._logger = l._logger.Named(l.name)
 	return l, err
 }
 
