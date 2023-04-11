@@ -79,7 +79,7 @@ func (g GormLogger) LogMode(gormLogLevel gormlogger.LogLevel) gormlogger.Interfa
 // CtxLogger 创建打印日志的 ctx logger
 func (g GormLogger) CtxLogger(ctx context.Context) *zap.Logger {
 	_, ctxLogger := NewCtxLogger(ctx, g._logger, "")
-	return ctxLogger
+	return ctxLogger.WithOptions(zap.AddCallerSkip(g.callerSkip))
 }
 
 // Info 实现 gorm baseLogger 接口方法
