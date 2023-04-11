@@ -157,18 +157,18 @@ func NewLogger(options Options) (*zap.Logger, error) {
 	}
 	var err error
 	// 生成 baseLogger
-	baseLogger, err = cfg.Build()
+	logger, err := cfg.Build()
 	if err != nil {
 		return nil, err
 	}
 
 	// 设置 baseLogger 名字，没有传参使用默认名字
 	if options.Name != "" {
-		baseLogger = baseLogger.Named(options.Name)
+		logger = logger.Named(options.Name)
 	} else {
-		baseLogger = baseLogger.Named(defaultLoggerName)
+		logger = logger.Named(defaultLoggerName)
 	}
-	return baseLogger, nil
+	return logger, nil
 }
 
 // CloneLogger return the global baseLogger copy which add a new name
