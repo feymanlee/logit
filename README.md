@@ -101,7 +101,7 @@ func main() {
 		CallerSkip:        3,
 		LogLevel:          zapcore.InfoLevel,
 		SlowThreshold:     5 * time.Second,
-		OutputPaths:       []string{"stdout", "lumberjack:"},
+		OutputPaths:       []string{"stdout", "lumberjack:", "/tem/a-xx.log"},
 		InitialFields:     nil,
 		DisableCaller:     false,
 		DisableStacktrace: false,
@@ -146,7 +146,7 @@ func main() {
 		InitialFields: map[string]interface{}{
 			"key1": "value1",
 		},
-		OutputPaths:       []string{"stdout", "lumberjack:"},
+		OutputPaths:       []string{"stdout", "lumberjack:", "/tem/a-xx.log"},
 		DisableCaller:     false, // 禁用 caller 打印
 		DisableStacktrace: false, // 禁用 Stacktrace
 		EncoderConfig:     nil,
@@ -203,7 +203,7 @@ func main() {
 		EnableRequestBody:   false,       // 记录 request body
 		EnableResponseBody:  false,       // 记录 response body
 		SlowThreshold:       time.Second, // 慢查询阈值，超时这个时间会答应 Warn 日志
-		OutputPaths:         []string{"stdout", "lumberjack:"},
+		OutputPaths:         []string{"stdout", "lumberjack:", "/tem/a-xx.log"},
 		InitialFields:       map[string]interface{}{"key1": "value1"}, // 一些初始化的打印字段
 		DisableCaller:       false,                                    // 禁用 caller 打印
 		DisableStacktrace:   false,                                    // 禁用 Stacktrace
@@ -220,6 +220,7 @@ func main() {
 }
 
 ```
+
 示例： [example/ginlogger.go](_example/ginlogger.go)
 
 ## 自定义 logger Encoder 配置
