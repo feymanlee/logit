@@ -1,10 +1,7 @@
 package logit
 
 import (
-	"io/ioutil"
-	"net/http"
 	"reflect"
-	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -36,7 +33,6 @@ func TestNewLogger(t *testing.T) {
 		InitialFields:     map[string]interface{}{"service_name": "testing"},
 		DisableCaller:     false,
 		DisableStacktrace: false,
-		AtomicLevelServer: AtomicLevelServerOption{Addr: ":1903"},
 	}
 	logger, err := NewLogger(options)
 	if err != nil {
@@ -44,38 +40,6 @@ func TestNewLogger(t *testing.T) {
 	}
 	logger.Debug("TestNewLogger Debug")
 	logger.Error("TestNewLogger Error")
-
-	// TEST HTTP Level
-	// query level
-	url := "http://localhost:1903"
-	logger.Debug("TestChangeLevel raw debug level")
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Error(err)
-	}
-	content, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Error(err)
-	}
-	defer resp.Body.Close()
-	t.Log("current level:", string(content))
-
-	// set level
-	c := &http.Client{}
-	req, _ := http.NewRequest("PUT", url, strings.NewReader(`{"level": "info"}`))
-	resp, err = c.Do(req)
-	if err != nil {
-		t.Error(err)
-	}
-	content, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Error(err)
-	}
-	defer resp.Body.Close()
-	t.Log("current level:", string(content))
-
-	logger.Debug("TestChangeLevel raw debug level should not be logged")
-
 }
 
 func TestCloneLogger(t *testing.T) {

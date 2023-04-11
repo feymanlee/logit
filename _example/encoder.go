@@ -26,11 +26,11 @@ func main() {
 		DisableCaller: false,
 	}
 	logger, _ := logit.NewLogger(options)
-	logger.Debug("EncoderConfig Debug", zap.Reflect("Tags", map[string]interface{}{
+	logger.Debug("defaultEncoderConfig Debug", zap.Reflect("Tags", map[string]interface{}{
 		"Status":     "200 OK",
 		"StatusCode": 200,
 		"Latency":    0.075,
 	}))
 	// Output:
-	// {"Level":"DEBUG","Time":"2020-04-15 19:23:44.373302","Logger":"apiserver","Caller":"example/encoder.go:main:30","Message":"EncoderConfig Debug","pid":66937,"Tags":{"Latency":0.075,"Status":"200 OK","StatusCode":200}}
+	// {"Level":"DEBUG","Time":"2020-04-15 19:23:44.373302","Logger":"apiserver","Caller":"example/encoder.go:main:30","Message":"defaultEncoderConfig Debug","pid":66937,"Tags":{"Latency":0.075,"Status":"200 OK","StatusCode":200}}
 }

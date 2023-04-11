@@ -10,13 +10,9 @@
 package logit
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,6 +20,27 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+// AtomicLevelServerOption AtomicLevel server 相关配置
+type AtomicLevelServerOption struct {
+	Addr     string // http 动态修改日志级别服务运行地址
+	Path     string // 设置 url path ，可选
+	Username string // 请求时设置 basic auth 认证的用户名，可选
+	Password string // 请求时设置 basic auth 认证的密码，可选，与 username 同时存在才开启 basic auth
+}
+
+// Options new baseLogger options
+type Options struct {
+	Name              string                 // baseLogger 名称
+	Level             string                 // 日志级别 debug, info, warn, error dpanic, panic, fatal
+	Format            string                 // 日志格式 console, json
+	OutputPaths       []string               // 日志输出位置
+	InitialFields     map[string]interface{} // 日志初始字段
+	DisableCaller     bool                   // 是否关闭打印 caller
+	DisableStacktrace bool                   // 是否关闭打印 stackstrace
+	EncoderConfig     *zapcore.EncoderConfig // 配置日志字段 key 的名称
+	LumberjackSink    *LumberjackSink        // lumberjack sink 支持日志文件 rotate
+}
 
 const (
 	// defaultLoggerName 默认 baseLogger name 为 logit
@@ -42,8 +59,8 @@ var (
 	}
 	// atomicLevel 默认 baseLogger atomic level 级别默认为 debug
 	atomicLevel = zap.NewAtomicLevelAt(zap.DebugLevel)
-	// EncoderConfig 默认的日志字段名配置
-	EncoderConfig = zapcore.EncoderConfig{
+	// defaultEncoderConfig 默认的日志字段名配置
+	defaultEncoderConfig = zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
 		NameKey:        "logger",
@@ -60,33 +77,6 @@ var (
 	rwMutex sync.RWMutex
 )
 
-// AtomicLevelServerOption AtomicLevel server 相关配置
-type AtomicLevelServerOption struct {
-	Addr     string // http 动态修改日志级别服务运行地址
-	Path     string // 设置 url path ，可选
-	Username string // 请求时设置 basic auth 认证的用户名，可选
-	Password string // 请求时设置 basic auth 认证的密码，可选，与 username 同时存在才开启 basic auth
-}
-
-// Options new baseLogger options
-type Options struct {
-	Name              string                  // baseLogger 名称
-	Level             string                  // 日志级别 debug, info, warn, error dpanic, panic, fatal
-	Format            string                  // 日志格式
-	OutputPaths       []string                // 日志输出位置
-	InitialFields     map[string]interface{}  // 日志初始字段
-	DisableCaller     bool                    // 是否关闭打印 caller
-	DisableStacktrace bool                    // 是否关闭打印 stackstrace
-	EncoderConfig     *zapcore.EncoderConfig  // 配置日志字段 key 的名称
-	LumberjackSink    *LumberjackSink         // lumberjack sink 支持日志文件 rotate
-	AtomicLevelServer AtomicLevelServerOption // AtomicLevel server 相关配置
-}
-
-const (
-	// AtomicLevelAddrEnvKey 初始化时尝试获取该环境变量用于设置动态修改日志级别的 http 服务运行地址
-	AtomicLevelAddrEnvKey = "ATOMIC_LEVEL_ADDR"
-)
-
 // init the global baseLogger
 func init() {
 	var err error
@@ -99,11 +89,8 @@ func init() {
 		InitialFields:     initialFields,
 		DisableCaller:     false,
 		DisableStacktrace: true,
-		AtomicLevelServer: AtomicLevelServerOption{
-			Addr: os.Getenv(AtomicLevelAddrEnvKey),
-		},
-		EncoderConfig:  &EncoderConfig,
-		LumberjackSink: nil,
+		EncoderConfig:     &defaultEncoderConfig,
+		LumberjackSink:    nil,
 	}
 	baseLogger, err = NewLogger(options)
 	if err != nil {
@@ -151,7 +138,7 @@ func NewLogger(options Options) (*zap.Logger, error) {
 
 	// 设置 encoderConfig
 	if options.EncoderConfig == nil {
-		cfg.EncoderConfig = EncoderConfig
+		cfg.EncoderConfig = defaultEncoderConfig
 	} else {
 		cfg.EncoderConfig = *options.EncoderConfig
 	}
@@ -180,9 +167,6 @@ func NewLogger(options Options) (*zap.Logger, error) {
 		baseLogger = baseLogger.Named(options.Name)
 	} else {
 		baseLogger = baseLogger.Named(defaultLoggerName)
-	}
-	if options.AtomicLevelServer.Addr != "" {
-		runAtomicLevelServer(cfg.Level, options.AtomicLevelServer)
 	}
 	return baseLogger, nil
 }
@@ -241,40 +225,4 @@ func ServerIP() string {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
 	return localAddr.IP.String()
-}
-
-// 运行 atomic level server
-func runAtomicLevelServer(atomicLevel zap.AtomicLevel, options AtomicLevelServerOption) {
-	go func() {
-		// curl -X GET http://host:port
-		// curl -X PUT http://host:port -d '{"level":"info"}'
-		urlPath := "/"
-		if options.Path != "" {
-			urlPath = options.Path
-		}
-
-		levelServer := http.NewServeMux()
-		levelServer.HandleFunc(urlPath, func(w http.ResponseWriter, r *http.Request) {
-			msg := fmt.Sprintf("%s %s the baseLogger atomic level", r.RemoteAddr, r.Method)
-			_, logger := NewCtxLogger(r.Context(), CloneLogger("atomiclevel"), r.Header.Get(string(TraceIDKeyName)))
-			if r.Method == http.MethodPut {
-				b, _ := ioutil.ReadAll(r.Body)
-				msg += " to " + string(b)
-				r.Body = ioutil.NopCloser(bytes.NewBuffer(b))
-				logger.Warn(msg)
-			} else {
-				logger.Info(msg)
-			}
-			if options.Username != "" && options.Password != "" {
-				if _, _, ok := r.BasicAuth(); !ok {
-					http.Error(w, "need to basic auth", http.StatusUnauthorized)
-					return
-				}
-			}
-			atomicLevel.ServeHTTP(w, r)
-		})
-		if err := http.ListenAndServe(options.Addr, levelServer); err != nil {
-			panic("logit NewLogger levelServer ListenAndServe error:" + err.Error())
-		}
-	}()
 }

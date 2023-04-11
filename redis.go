@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -28,9 +29,29 @@ const (
 )
 
 type RedisLoggerOptions struct {
-	Name          string
-	CallerSkip    int
+	Name string
+	// CallerSkip，默认值 4
+	CallerSkip int
+	// 慢请求时间阈值 请求处理时间超过该值则使用 Warn 级别打印日志
 	SlowThreshold time.Duration
+	// 日志输出路径，默认 []string{"console"}
+	// Optional.
+	OutputPaths []string
+	// 日志初始字段
+	// Optional.
+	InitialFields map[string]interface{}
+	// 是否关闭打印 caller，默认 false
+	// Optional.
+	DisableCaller bool
+	// 是否关闭打印 stack strace，默认 false
+	// Optional.
+	DisableStacktrace bool
+	// 配置日志字段 key 的名称
+	// Optional.
+	EncoderConfig *zapcore.EncoderConfig
+	// lumberjack sink 支持日志文件 rotate
+	// Optional.
+	LumberjackSink *LumberjackSink
 }
 
 type RedisLogger struct {
@@ -41,7 +62,7 @@ type RedisLogger struct {
 	_logger       *zap.Logger
 }
 
-func NewRedisLogger(opt RedisLoggerOptions) RedisLogger {
+func NewRedisLogger(opt RedisLoggerOptions) (RedisLogger, error) {
 	l := RedisLogger{
 		name:          defaultRedisLoggerName,
 		callerSkip:    defaultRedisLoggerCallerSkip,
@@ -56,8 +77,19 @@ func NewRedisLogger(opt RedisLoggerOptions) RedisLogger {
 	if opt.SlowThreshold > 0 {
 		l.slowThreshold = opt.SlowThreshold
 	}
-	l._logger = CloneLogger(l.name)
-	return l
+	var err error
+	l._logger, err = NewLogger(Options{
+		Level:             "debug",
+		Format:            "json",
+		OutputPaths:       opt.OutputPaths,
+		InitialFields:     opt.InitialFields,
+		DisableCaller:     opt.DisableCaller,
+		DisableStacktrace: opt.DisableStacktrace,
+		EncoderConfig:     opt.EncoderConfig,
+		LumberjackSink:    opt.LumberjackSink,
+	})
+	l._logger = l._logger.Named(opt.Name).WithOptions(zap.AddCallerSkip(l.callerSkip))
+	return l, err
 }
 
 //
@@ -124,7 +156,13 @@ func (l RedisLogger) AfterProcess(ctx context.Context, cmd redis.Cmder) error {
 //  @return error
 //
 func (l RedisLogger) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmder) (context.Context, error) {
-	return ctx, nil
+	if gc, ok := ctx.(*gin.Context); ok {
+		// set start time in gin.Context
+		gc.Set(string(ctxRedisStartKey), time.Now())
+		return ctx, nil
+	}
+	// set start time in context
+	return context.WithValue(ctx, ctxRedisStartKey, time.Now()), nil
 }
 
 //

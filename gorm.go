@@ -20,14 +20,31 @@ const (
 )
 
 type GormLoggerOptions struct {
-	Name             string
-	LoggerCallerSkip int
+	Name string
 	// 日志级别
 	LogLevel zapcore.Level
-	// 指定慢查询时间
+	// CallerSkip，默认值 3
+	CallerSkip int
+	// 慢请求时间阈值 请求处理时间超过该值则使用 Warn 级别打印日志
 	SlowThreshold time.Duration
-	// Trace 方法打印日志是使用的日志 level
-	TraceWithLevel zapcore.Level
+	// 日志输出路径，默认 []string{"console"}
+	// Optional.
+	OutputPaths []string
+	// 日志初始字段
+	// Optional.
+	InitialFields map[string]interface{}
+	// 是否关闭打印 caller，默认 false
+	// Optional.
+	DisableCaller bool
+	// 是否关闭打印 stack strace，默认 false
+	// Optional.
+	DisableStacktrace bool
+	// 配置日志字段 key 的名称
+	// Optional.
+	EncoderConfig *zapcore.EncoderConfig
+	// lumberjack sink 支持日志文件 rotate
+	// Optional.
+	LumberjackSink *LumberjackSink
 }
 
 // GormLogger 使用 zap 来打印 gorm 的日志
@@ -39,9 +56,7 @@ type GormLogger struct {
 	logLevel zapcore.Level
 	// 指定慢查询时间
 	slowThreshold time.Duration
-	// Trace 方法打印日志是使用的日志 level
-	traceWithLevel zapcore.Level
-	_logger        *zap.Logger
+	_logger       *zap.Logger
 }
 
 var gormLogLevelMap = map[gormlogger.LogLevel]zapcore.Level{
@@ -61,10 +76,10 @@ func (g GormLogger) LogMode(gormLogLevel gormlogger.LogLevel) gormlogger.Interfa
 	return &newLogger
 }
 
-// CtxLogger 创建打印日志的 ctxlogger
+// CtxLogger 创建打印日志的 ctx logger
 func (g GormLogger) CtxLogger(ctx context.Context) *zap.Logger {
 	_, ctxLogger := NewCtxLogger(ctx, g._logger, "")
-	return ctxLogger.WithOptions(zap.AddCallerSkip(g.callerSkip))
+	return ctxLogger
 }
 
 // Info 实现 gorm baseLogger 接口方法
@@ -94,40 +109,48 @@ func (g GormLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 	latency := now.Sub(begin).Seconds()
 	sql, rows := fc()
 	sql = goutils.RemoveDuplicateWhitespace(sql, true)
-	l := g.CtxLogger(ctx)
+	l := g.CtxLogger(ctx).Named("sql")
 	switch {
 	case err != nil:
-		l.Named("sql").Error("sql trace", zap.String("sql", sql), zap.Float64("latency", latency), zap.Int64("rows", rows), zap.String("error", err.Error()))
+		l.Error("sql trace", zap.String("sql", sql), zap.Float64("latency", latency), zap.Int64("rows", rows), zap.String("error", err.Error()))
 	case g.slowThreshold != 0 && latency > g.slowThreshold.Seconds():
-		l.Named("sql").Warn("sql trace[slow]", zap.String("sql", sql), zap.Float64("latency", latency), zap.Int64("rows", rows), zap.Float64("threshold", g.slowThreshold.Seconds()))
+		l.Warn("sql trace[slow]", zap.String("sql", sql), zap.Float64("latency", latency), zap.Int64("rows", rows), zap.Float64("threshold", g.slowThreshold.Seconds()))
 	default:
-		log := l.Debug
-		if g.traceWithLevel == zap.InfoLevel {
-			log = l.Info
-		} else if g.traceWithLevel == zap.WarnLevel {
-			log = l.Warn
-		} else if g.traceWithLevel == zap.ErrorLevel {
-			log = l.Error
-		}
-		log("sql trace", zap.String("sql", sql), zap.Float64("latency", latency), zap.Int64("rows", rows))
+		l.Info("sql trace", zap.String("sql", sql), zap.Float64("latency", latency), zap.Int64("rows", rows))
 	}
 }
 
-// NewGormLogger 返回带 zap baseLogger 的 GormLogger
-func NewGormLogger(opt GormLoggerOptions) GormLogger {
+//
+// NewGormLogger
+//  @Description: 创建实现了 gorm logger interface 的 logger
+//  @param opt
+//  @return GormLogger
+//  @return error
+//
+func NewGormLogger(opt GormLoggerOptions) (GormLogger, error) {
 	l := GormLogger{
-		name:           GormLoggerName,
-		callerSkip:     GormLoggerCallerSkip,
-		logLevel:       opt.LogLevel,
-		slowThreshold:  opt.SlowThreshold,
-		traceWithLevel: opt.TraceWithLevel,
+		name:          GormLoggerName,
+		callerSkip:    GormLoggerCallerSkip,
+		logLevel:      opt.LogLevel,
+		slowThreshold: opt.SlowThreshold,
 	}
 	if opt.Name != "" {
 		l.name = opt.Name
 	}
-	if opt.LoggerCallerSkip != 0 {
-		l.callerSkip = opt.LoggerCallerSkip
+	if opt.CallerSkip != 0 {
+		l.callerSkip = opt.CallerSkip
 	}
-	l._logger = CloneLogger(l.name)
-	return l
+	var err error
+	l._logger, err = NewLogger(Options{
+		Level:             "debug",
+		Format:            "json",
+		OutputPaths:       opt.OutputPaths,
+		InitialFields:     opt.InitialFields,
+		DisableCaller:     opt.DisableCaller,
+		DisableStacktrace: opt.DisableStacktrace,
+		EncoderConfig:     opt.EncoderConfig,
+		LumberjackSink:    opt.LumberjackSink,
+	})
+	l._logger = l._logger.WithOptions(zap.AddCallerSkip(l.callerSkip)).Named(opt.Name)
+	return l, err
 }

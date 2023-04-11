@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -97,8 +98,6 @@ type GinLoggerConfig struct {
 	// TraceIDFunc 获取或生成 trace id 的函数
 	// Optional.
 	TraceIDFunc func(*gin.Context) string
-	// InitFieldsFunc 获取 baseLogger 初始字段方法 key 为字段名 value 为字段值
-	InitFieldsFunc func(*gin.Context) map[string]interface{}
 	// 是否使用详细模式打印日志，记录更多字段信息
 	// Optional.
 	EnableDetails bool
@@ -118,9 +117,26 @@ type GinLoggerConfig struct {
 	// 是否打印响应体信息
 	// Optional.
 	EnableResponseBody bool
-
-	// 慢请求时间阈值 请求处理时间超过该值则使用 Error 级别打印日志
+	// 慢请求时间阈值 请求处理时间超过该值则使用 Warn 级别打印日志
 	SlowThreshold time.Duration
+	// 日志输出路径，默认 []string{"console"}
+	// Optional.
+	OutputPaths []string
+	// 日志初始字段
+	// Optional.
+	InitialFields map[string]interface{}
+	// 是否关闭打印 caller，默认 false
+	// Optional.
+	DisableCaller bool
+	// 是否关闭打印 stack strace，默认 false
+	// Optional.
+	DisableStacktrace bool
+	// 配置日志字段 key 的名称
+	// Optional.
+	EncoderConfig *zapcore.EncoderConfig
+	// lumberjack sink 支持日志文件 rotate
+	// Optional.
+	LumberjackSink *LumberjackSink
 }
 
 //
@@ -201,11 +217,22 @@ func GinLoggerWithConfig(conf GinLoggerConfig) gin.HandlerFunc {
 			skipRegexps = append(skipRegexps, r)
 		}
 	}
-
 	if conf.SlowThreshold.Seconds() <= 0 {
 		conf.SlowThreshold = defaultGinSlowThreshold
 	}
-	ginLogger := CloneLogger(conf.Name)
+	ginLogger, err := NewLogger(Options{
+		Level:             "debug",
+		Format:            "json",
+		OutputPaths:       conf.OutputPaths,
+		InitialFields:     conf.InitialFields,
+		DisableCaller:     conf.DisableCaller,
+		DisableStacktrace: conf.DisableStacktrace,
+		EncoderConfig:     conf.EncoderConfig,
+		LumberjackSink:    conf.LumberjackSink,
+	})
+	if err != nil {
+		panic("new gin error failed: " + err.Error())
+	}
 
 	var ginLogExtends = GinLogExtends{}
 
@@ -222,16 +249,15 @@ func GinLoggerWithConfig(conf GinLoggerConfig) gin.HandlerFunc {
 		// 设置 trace id 到 response header 中
 		c.Writer.Header().Set(string(TraceIDKeyName), traceID)
 		// 设置 trace id 和 ctxLogger 到 context 中
-		if conf.InitFieldsFunc != nil {
-			for k, v := range conf.InitFieldsFunc(c) {
-				ginLogger = ginLogger.With(zap.Any(k, v))
-			}
-		}
 		_, ctxLogger := NewCtxLogger(c, ginLogger, traceID)
 		_, shortHandlerName := path.Split(c.HandlerName())
 		ginLogExtends.HandleName = shortHandlerName
+		// 如果 logger name 为空
+		if conf.Name == "" {
+			conf.Name = defaultGinLoggerName
+		}
 		// 创建基础 logger，可以记录基础的信息
-		accessLogger := ctxLogger.With(
+		accessLogger := ctxLogger.Named(conf.Name).With(
 			zap.Time("req_time", start),
 			zap.String("client_ip", c.ClientIP()),
 			zap.String("method", c.Request.Method),
@@ -239,10 +265,6 @@ func GinLoggerWithConfig(conf GinLoggerConfig) gin.HandlerFunc {
 			zap.String("host", c.Request.Host),
 			zap.String("handle", shortHandlerName),
 		)
-
-		if conf.Name == "" {
-			conf.Name = defaultGinLoggerName
-		}
 		// 判断是否打印请求 header
 		if conf.EnableRequestHeader {
 			accessLogger = accessLogger.With(zap.Any("request_header", c.Request.Header))

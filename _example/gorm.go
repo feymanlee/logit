@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/feymanlee/logit"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -41,18 +40,23 @@ func init() {
 func G(traceID string) {
 
 	// 模拟一个 ctx ，并将 logger 和 traceID 设置到 ctx 中
-	// 这里使用 Options 设置为打印 caller 字段
-	ctx, _ := logit.NewCtxLogger(context.Background(), logit.CloneLogger("gorm"), traceID)
-
+	gormLogger, err := logit.NewGormLogger(logit.GormLoggerOptions{
+		Name:              "gorm",
+		CallerSkip:        3,
+		LogLevel:          zapcore.InfoLevel,
+		SlowThreshold:     5 * time.Second,
+		OutputPaths:       []string{"stdout", "lumberjack:"},
+		InitialFields:     nil,
+		DisableCaller:     false,
+		DisableStacktrace: false,
+		LumberjackSink:    logit.NewLumberjackSink("lumberjack", "/tmp/gorm.log", 1, 1, 10, false, true),
+	})
+	if err != nil {
+		panic(err)
+	}
 	// 新建会话模式设置 logger，也可以在 Open 时 使用 Config 设置
 	db = db.Session(&gorm.Session{
-		Logger: logit.NewGormLogger(logit.GormLoggerOptions{
-			Name:             "gorm",
-			LoggerCallerSkip: 3,
-			LogLevel:         zapcore.InfoLevel,
-			SlowThreshold:    5 * time.Second,
-			TraceWithLevel:   zap.DebugLevel,
-		}),
+		Logger: gormLogger,
 	})
 
 	// 打印带 trace id 的 gorm 日志
@@ -60,10 +64,10 @@ func G(traceID string) {
 	// 后续的 gorm 操作使用新的 db 对象即可
 	// 第三个参数为指定使用哪个级别的方法打印 sql 日志
 	// Create
-	db.WithContext(ctx).Create(&Product{Code: traceID, Price: 1000})
+	db.WithContext(context.Background()).Create(&Product{Code: traceID, Price: 1000})
 	// Query
 	var products []Product
-	db.WithContext(ctx).Find(&products)
+	db.WithContext(context.Background()).Find(&products)
 
 	wg.Done()
 }

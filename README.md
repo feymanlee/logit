@@ -21,11 +21,8 @@ logit 只提供 zap 使用时的常用方法汇总，不是对 zap 进行二次�
 
 ## 开箱即用
 
-`logit` 提供的开箱即用方法都是使用自身默认 logger 克隆出的 CtxLogger 实际执行的。
 在 `logit` 被 import 时，会生成内部使用的默认 logger 。
 默认 logger 使用 JSON 格式打印日志内容到 stderr 。
-默认不带 Sentry 上报功能，可以通过设置环境变量或者替换 logger 方法支持。
-默认 logger 可通过代码内部动态修改日志级别， 默认不支持 HTTP 方式动态修改日志级别，需要指定端口创建新的 logger 来支持。
 默认带有初始字段 pid 打印进程 ID 。
 
 开箱即用的方法第一个参数为 context.Context, 可以传入 gin.Context ，会尝试从其中获取 Trace ID 进行日志打印，无需 Trace ID 可以直接传 nil
@@ -64,7 +61,7 @@ logit.Debug(c, "extra fields demo", logit.ExtraField("k1", "v1", "k2", 2, "k3", 
 // {"level":"DEBUG","time":"2020-04-15 18:12:11.991348","logger":"logit.myname","msg":"extra fields demo","pid":45713,"traceID":"trace-id-123","extra":{"k1":"v1","k2":2,"k3":true}}
 ```
 
-**示例 [example/logit.go](_example/logit.go)**
+**详细示例 [example/logit.go](_example/logit.go)**
 
 ## 替换默认 log
 
@@ -74,7 +71,7 @@ logit.Debug(c, "extra fields demo", logit.ExtraField("k1", "v1", "k2", 2, "k3", 
 
 `logit` 提供多种方式快速获取一个 logger 来打印日志
 
-**示例 [example/logger.go](_example/logger.go)**
+**示例 [example/logger.go](_example/logging.go)**
 
 ## 带 Trace ID 的 CtxLogger
 
@@ -84,24 +81,6 @@ logit.Debug(c, "extra fields demo", logit.ExtraField("k1", "v1", "k2", 2, "k3", 
 **示例 1 普通函数中打印打印带 Trace ID 的日志 [example/context.go](_example/context.go)**
 
 **示例 2 gin 中打印带 Trace ID 的日志 [example/gin.go](_example/gintraceid.go)**:
-
-## 动态修改 logger 日志级别
-
-`logit` 可以在代码中对 AtomicLevel 调用 SetLevel 动态修改日志级别，也可以通过请求 HTTP 接口修改。
-创建 logger 时可自定义端口运行 HTTP 服务来接收请求修改日志级别。实际使用中日志级别通常写在配置文件中，
-可以通过监听配置文件的修改来动态调用 SetLevel 方法。
-
-**示例 [example/atomiclevel.go](_example/atomiclevel.go)**
-
-## 自定义 logger Encoder 配置
-
-**示例 [example/encoder.go](_example/encoder.go)**
-
-## 日志保存到文件并自动 rotate
-
-使用 lumberjack 将日志保存到文件并 rotate ，采用 zap 的 RegisterSink 方法和 Config.OutputPaths 字段添加自定义的日志输出的方式来使用 lumberjack 。
-
-**示例 [example/lumberjack.go](_example/lumberjack.go)**
 
 ## 支持 Gorm 日志打印
 
@@ -116,16 +95,24 @@ import (
 )
 
 func main() {
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		PrepareStmt:       true,
-		AllowGlobalUpdate: false,
-		Logger: logit.NewGormLogger(logit.GormLoggerOptions{
-			Name:             "gorm",
-			LoggerCallerSkip: 3,
-			LogLevel:         zap.InfoLevel,
-			SlowThreshold:    time.Millisecond * 200,
-			TraceWithLevel:   zap.InfoLevel,
-		}),
+	// 模拟一个 ctx ，并将 logger 和 traceID 设置到 ctx 中
+	gormLogger, err := logit.NewGormLogger(logit.GormLoggerOptions{
+		Name:              "gorm",
+		CallerSkip:        3,
+		LogLevel:          zapcore.InfoLevel,
+		SlowThreshold:     5 * time.Second,
+		OutputPaths:       []string{"stdout", "lumberjack:"},
+		InitialFields:     nil,
+		DisableCaller:     false,
+		DisableStacktrace: false,
+		LumberjackSink:    logit.NewLumberjackSink("lumberjack", "/tmp/gorm.log", 1, 1, 10, false, true),
+	})
+	if err != nil {
+		panic(err)
+	}
+	// 新建会话模式设置 logger，也可以在 Open 时 使用 Config 设置
+	db = db.Session(&gorm.Session{
+		Logger: gormLogger,
 	})
 }
 
@@ -141,6 +128,8 @@ func main() {
 package main
 
 import (
+	"time"
+
 	"github.com/feymanlee/logit"
 	"github.com/go-redis/redis/v8"
 )
@@ -150,7 +139,22 @@ func main() {
 		Addr: "127.0.0.1:6379",
 	})
 	// 这里可以添加一写自定义的配置
-	logHook := logit.NewRedisLogger(logit.RedisLoggerOptions{})
+	logHook, err := logit.NewRedisLogger(logit.RedisLoggerOptions{
+		Name:          "redis",
+		CallerSkip:    3,
+		SlowThreshold: time.Millisecond * 10, // 慢查询阈值，会使用 Warn 打印日志
+		InitialFields: map[string]interface{}{
+			"key1": "value1",
+		},
+		OutputPaths:       []string{"stdout", "lumberjack:"},
+		DisableCaller:     false, // 禁用 caller 打印
+		DisableStacktrace: false, // 禁用 Stacktrace
+		EncoderConfig:     nil,
+		LumberjackSink:    logit.NewLumberjackSink("lumberjack", "/tmp/redis.log", 1, 1, 10, false, true), // 设置日志自动分割
+	})
+	if err != nil {
+		panic(err)
+	}
 	client.AddHook(logHook)
 }
 
@@ -167,6 +171,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/feymanlee/logit"
 	"github.com/gin-gonic/gin"
@@ -177,6 +182,7 @@ func main() {
 	app := gin.New()
 	// you can custom the config or use logit.GinLogger() by default config
 	conf := logit.GinLoggerConfig{
+		Name: "access",
 		Formatter: func(c *gin.Context, ext logit.GinLogExtends) string {
 			return fmt.Sprintf("%s use %s request %s at %v, handler %s use %f seconds to respond it with %d",
 				c.ClientIP(),
@@ -187,9 +193,22 @@ func main() {
 				ext.Latency,
 				c.Writer.Status())
 		},
-		SkipPaths:     []string{},
-		EnableDetails: false,
-		TraceIDFunc:   func(c *gin.Context) string { return "my-trace-id" },
+		SkipPaths:           []string{"/user/list"},
+		EnableDetails:       false,
+		TraceIDFunc:         func(c *gin.Context) string { return "my-trace-id" },
+		SkipPathRegexps:     []string{"/user/.*?"},
+		EnableContextKeys:   false,       // 记录 context 里面的 key
+		EnableRequestHeader: false,       // 记录 header
+		EnableRequestForm:   false,       // 记录 request form
+		EnableRequestBody:   false,       // 记录 request body
+		EnableResponseBody:  false,       // 记录 response body
+		SlowThreshold:       time.Second, // 慢查询阈值，超时这个时间会答应 Warn 日志
+		OutputPaths:         []string{"stdout", "lumberjack:"},
+		InitialFields:       map[string]interface{}{"key1": "value1"}, // 一些初始化的打印字段
+		DisableCaller:       false,                                    // 禁用 caller 打印
+		DisableStacktrace:   false,                                    // 禁用 Stacktrace
+		EncoderConfig:       nil,
+		LumberjackSink:      logit.NewLumberjackSink("lumberjack", "/tmp/access.log", 1, 1, 10, false, true), // 设置日志自动分割
 	}
 	app.Use(logit.GinLoggerWithConfig(conf))
 	app.POST("/ping", func(c *gin.Context) {
@@ -201,8 +220,17 @@ func main() {
 }
 
 ```
-
 示例： [example/ginlogger.go](_example/ginlogger.go)
+
+## 自定义 logger Encoder 配置
+
+**示例 [example/encoder.go](_example/encoder.go)**
+
+## 日志保存到文件并自动 rotate
+
+使用 lumberjack 将日志保存到文件并 rotate ，采用 zap 的 RegisterSink 方法和 Config.OutputPaths 字段添加自定义的日志输出的方式来使用 lumberjack 。
+
+**示例 [example/lumberjack.go](_example/lumberjack.go)**
 
 ## 感谢
 
