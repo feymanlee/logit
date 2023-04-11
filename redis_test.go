@@ -27,7 +27,6 @@ func TestRedisLogger(t *testing.T) {
 		DisableCaller:     false,
 		DisableStacktrace: false,
 		EncoderConfig:     &defaultEncoderConfig,
-		LumberjackSink:    nil,
 	})
 	if err != nil {
 		t.Errorf("new gorm logger failed: %v", err)

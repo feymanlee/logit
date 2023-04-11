@@ -10,7 +10,6 @@
 package logit
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -39,7 +38,6 @@ type Options struct {
 	DisableCaller     bool                   // 是否关闭打印 caller
 	DisableStacktrace bool                   // 是否关闭打印 stackstrace
 	EncoderConfig     *zapcore.EncoderConfig // 配置日志字段 key 的名称
-	LumberjackSink    *LumberjackSink        // lumberjack sink 支持日志文件 rotate
 }
 
 const (
@@ -90,7 +88,6 @@ func init() {
 		DisableCaller:     false,
 		DisableStacktrace: true,
 		EncoderConfig:     &defaultEncoderConfig,
-		LumberjackSink:    nil,
 	}
 	baseLogger, err = NewLogger(options)
 	if err != nil {
@@ -149,12 +146,6 @@ func NewLogger(options Options) (*zap.Logger, error) {
 		Thereafter: 100,
 	}
 
-	// 注册 lumberjack sink ，支持 Outputs 指定为文件时可以使用 lumberjack 对日志文件自动 rotate
-	if options.LumberjackSink != nil {
-		if err := RegisterLumberjackSink(options.LumberjackSink); err != nil {
-			return nil, fmt.Errorf("RegisterSink error: %v", err)
-		}
-	}
 	var err error
 	// 生成 baseLogger
 	logger, err := cfg.Build()

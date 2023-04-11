@@ -42,9 +42,6 @@ type GormLoggerOptions struct {
 	// 配置日志字段 key 的名称
 	// Optional.
 	EncoderConfig *zapcore.EncoderConfig
-	// lumberjack sink 支持日志文件 rotate
-	// Optional.
-	LumberjackSink *LumberjackSink
 }
 
 // GormLogger 使用 zap 来打印 gorm 的日志
@@ -149,7 +146,6 @@ func NewGormLogger(opt GormLoggerOptions) (GormLogger, error) {
 		DisableCaller:     opt.DisableCaller,
 		DisableStacktrace: opt.DisableStacktrace,
 		EncoderConfig:     opt.EncoderConfig,
-		LumberjackSink:    opt.LumberjackSink,
 	})
 	l._logger = l._logger.Named(l.name)
 	return l, err

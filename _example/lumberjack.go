@@ -6,8 +6,11 @@ import "github.com/feymanlee/logit"
 func main() {
 	// scheme 为 lumberjack ，日志文件为 /tmp/x.log , 保存 7 天，保留 10 份文件，文件大小超过 100M ，使用压缩备份，压缩文件名使用 localtime
 	sink := logit.NewLumberjackSink("lumberjack", "/tmp/x.log", 7, 10, 100, true, true)
+	err := logit.RegisterLumberjackSink(sink)
+	if err != nil {
+		panic(err)
+	}
 	options := logit.Options{
-		LumberjackSink: sink,
 		// 使用 sink 中设置的 scheme 即 lumberjack: 或 lumberjack:// 并指定保存日志到指定文件，日志文件将自动按 LumberjackSink 的配置做 rotate
 		OutputPaths: []string{"lumberjack:"},
 	}
@@ -15,8 +18,11 @@ func main() {
 	logger.Debug("xxx")
 
 	sink2 := logit.NewLumberjackSink("lumberjack2", "/tmp/x2.log", 7, 10, 100, true, true)
+	err = logit.RegisterLumberjackSink(sink2)
+	if err != nil {
+		panic(err)
+	}
 	options2 := logit.Options{
-		LumberjackSink: sink2,
 		// 使用 sink 中设置的 scheme 即 lumberjack: 或 lumberjack:// 并指定保存日志到指定文件，日志文件将自动按 LumberjackSink 的配置做 rotate
 		OutputPaths: []string{"lumberjack2:"},
 	}

@@ -11,11 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	// LogFilename 默认日志文件名
-	LogFilename = "/tmp/logit.log"
-)
-
 // LumberjackSink 将日志输出到 lumberjack 进行 rotate
 type LumberjackSink struct {
 	*lumberjack.Logger
@@ -27,18 +22,18 @@ func (LumberjackSink) Sync() error {
 	return nil
 }
 
-// RegisterLumberjackSink 注册 lumberjack sink
+func RegisterLumberjackSink(sink *LumberjackSink) error {
+	return RegisterSink(sink.Scheme, sink)
+}
+
+// RegisterSink 注册 lumberjack sink
 // 在 OutputPaths 中指定输出为 sink.Scheme://log_filename 即可使用
 // path url 中不指定日志文件名则使用默认的名称
 // 一个 scheme 只能对应一个文件名，相同的 scheme 注册无效，会全部写入同一个文件
-func RegisterLumberjackSink(sink *LumberjackSink) error {
-	err := zap.RegisterSink(sink.Scheme, func(*url.URL) (zap.Sink, error) {
-		if sink.Filename == "" {
-			sink.Filename = LogFilename
-		}
+func RegisterSink(scheme string, sink zap.Sink) error {
+	return zap.RegisterSink(scheme, func(*url.URL) (zap.Sink, error) {
 		return sink, nil
 	})
-	return err
 }
 
 //

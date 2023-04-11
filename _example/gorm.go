@@ -49,7 +49,6 @@ func G(traceID string) {
 		InitialFields:     nil,
 		DisableCaller:     false,
 		DisableStacktrace: false,
-		LumberjackSink:    logit.NewLumberjackSink("lumberjack", "/tmp/gorm.log", 1, 1, 10, false, true),
 	})
 	if err != nil {
 		panic(err)

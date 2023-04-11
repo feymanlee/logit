@@ -39,7 +39,6 @@ func main() {
 		DisableCaller:       false,                                    // 禁用 caller 打印
 		DisableStacktrace:   false,                                    // 禁用 Stacktrace
 		EncoderConfig:       nil,
-		LumberjackSink:      logit.NewLumberjackSink("lumberjack", "/tmp/access.log", 1, 1, 10, false, true), // 设置日志自动分割
 	}
 	app.Use(logit.GinLoggerWithConfig(conf))
 	app.POST("/ping", func(c *gin.Context) {

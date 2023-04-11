@@ -80,7 +80,47 @@ logit.Debug(c, "extra fields demo", logit.ExtraField("k1", "v1", "k2", 2, "k3", 
 
 **示例 1 普通函数中打印打印带 Trace ID 的日志 [example/context.go](_example/context.go)**
 
-**示例 2 gin 中打印带 Trace ID 的日志 [example/gin.go](_example/gintraceid.go)**:
+**示例 2 gin 中打印带 Trace ID 的日志 [example/gin.go](_example/gintraceid.go)**
+
+## 日志保存到文件并自动 rotate
+
+使用 lumberjack 将日志保存到文件并 rotate.
+```go
+package main
+
+import "github.com/feymanlee/logit"
+
+// Options 传入 LumberjacSink ，并在 OutputPaths 中添加对应 scheme 就能将日志保存到文件并自动 rotate
+func main() {
+	// scheme 为 lumberjack ，日志文件为 /tmp/x.log , 保存 7 天，保留 10 份文件，文件大小超过 100M ，使用压缩备份，压缩文件名使用 localtime
+	sink := logit.NewLumberjackSink("lumberjack", "/tmp/x.log", 7, 10, 100, true, true)
+	err := logit.RegisterLumberjackSink(sink)
+	if err != nil {
+		panic(err)
+	}
+	options := logit.Options{
+		// 使用 sink 中设置的 scheme 即 lumberjack: 或 lumberjack:// 并指定保存日志到指定文件，日志文件将自动按 LumberjackSink 的配置做 rotate
+		OutputPaths: []string{"lumberjack:"},
+	}
+	logger, _ := logit.NewLogger(options)
+	logger.Debug("xxx")
+
+	sink2 := logit.NewLumberjackSink("lumberjack2", "/tmp/x2.log", 7, 10, 100, true, true)
+	err = logit.RegisterLumberjackSink(sink2)
+	if err != nil {
+		panic(err)
+	}
+	options2 := logit.Options{
+		// 使用 sink 中设置的 scheme 即 lumberjack: 或 lumberjack:// 并指定保存日志到指定文件，日志文件将自动按 LumberjackSink 的配置做 rotate
+		OutputPaths: []string{"lumberjack2:"},
+	}
+	logger2, _ := logit.NewLogger(options2)
+	logger2.Debug("yyy")
+}
+
+```
+
+**示例 [example/lumberjack.go](_example/lumberjack.go)**
 
 ## 支持 Gorm 日志打印
 
@@ -105,7 +145,6 @@ func main() {
 		InitialFields:     nil,
 		DisableCaller:     false,
 		DisableStacktrace: false,
-		LumberjackSink:    logit.NewLumberjackSink("lumberjack", "/tmp/gorm.log", 1, 1, 10, false, true),
 	})
 	if err != nil {
 		panic(err)
@@ -150,7 +189,6 @@ func main() {
 		DisableCaller:     false, // 禁用 caller 打印
 		DisableStacktrace: false, // 禁用 Stacktrace
 		EncoderConfig:     nil,
-		LumberjackSink:    logit.NewLumberjackSink("lumberjack", "/tmp/redis.log", 1, 1, 10, false, true), // 设置日志自动分割
 	})
 	if err != nil {
 		panic(err)
@@ -208,7 +246,6 @@ func main() {
 		DisableCaller:       false,                                    // 禁用 caller 打印
 		DisableStacktrace:   false,                                    // 禁用 Stacktrace
 		EncoderConfig:       nil,
-		LumberjackSink:      logit.NewLumberjackSink("lumberjack", "/tmp/access.log", 1, 1, 10, false, true), // 设置日志自动分割
 	}
 	app.Use(logit.GinLoggerWithConfig(conf))
 	app.POST("/ping", func(c *gin.Context) {
@@ -226,12 +263,6 @@ func main() {
 ## 自定义 logger Encoder 配置
 
 **示例 [example/encoder.go](_example/encoder.go)**
-
-## 日志保存到文件并自动 rotate
-
-使用 lumberjack 将日志保存到文件并 rotate ，采用 zap 的 RegisterSink 方法和 Config.OutputPaths 字段添加自定义的日志输出的方式来使用 lumberjack 。
-
-**示例 [example/lumberjack.go](_example/lumberjack.go)**
 
 ## 感谢
 

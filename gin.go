@@ -134,9 +134,6 @@ type GinLoggerConfig struct {
 	// 配置日志字段 key 的名称
 	// Optional.
 	EncoderConfig *zapcore.EncoderConfig
-	// lumberjack sink 支持日志文件 rotate
-	// Optional.
-	LumberjackSink *LumberjackSink
 }
 
 //
@@ -228,7 +225,6 @@ func GinLoggerWithConfig(conf GinLoggerConfig) gin.HandlerFunc {
 		DisableCaller:     conf.DisableCaller,
 		DisableStacktrace: conf.DisableStacktrace,
 		EncoderConfig:     conf.EncoderConfig,
-		LumberjackSink:    conf.LumberjackSink,
 	})
 	if err != nil {
 		panic("new gin error failed: " + err.Error())

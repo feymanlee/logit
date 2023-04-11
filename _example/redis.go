@@ -23,7 +23,6 @@ func main() {
 		DisableCaller:     false, // 禁用 caller 打印
 		DisableStacktrace: false, // 禁用 Stacktrace
 		EncoderConfig:     nil,
-		LumberjackSink:    logit.NewLumberjackSink("lumberjack", "/tmp/redis.log", 1, 1, 10, false, true), // 设置日志自动分割
 	})
 	if err != nil {
 		panic(err)
