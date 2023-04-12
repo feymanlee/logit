@@ -14,9 +14,8 @@ logit 简单封装了在日常使用 [zap](https://github.com/uber-go/zap) 打�
 - 提供 `gin` 的日志中间件，支持 Trace ID，可以记录更加详细的请求和响应信息，支持通过配置自定义
 - 支持 `Gorm` 日志并打印 Trace ID
 - 支持 `go-redis` 日志并打印 Trace ID，目前只支持 `go-redis/v8`, 后续会增加对 `go-redis/v9` 的支持
-- 支持服务内部函数方式和外部 HTTP 方式 **动态调整日志级别**，无需修改配置、重启服务
-- 支持自定义 logger Encoder 配置
 - 支持将日志保存到文件并自动 rotate
+- 支持自定义 logger Encoder 配置
 
 logit 只提供 zap 使用时的常用方法汇总，不是对 zap 进行二次开发，拒绝过度封装。
 
