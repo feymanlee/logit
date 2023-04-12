@@ -11,9 +11,9 @@ logit 简单封装了在日常使用 [zap](https://github.com/uber-go/zap) 打�
 - 提供快速使用 zap 打印日志的方法，除 zap 的 DPanic 、 DPanicf 方法外所有日志打印方法开箱即用
 - 提供多种快速创建 `logger` 的方法
 - 支持从 Context 中创建、获取带有 **Trace ID** 的 logger
-- 提供 `gin` 的日志中间件，支持 Trace ID，可以记录更加详细的请求和响应信息，支持通过配置自定义
-- 支持 `Gorm` 日志并打印 Trace ID
-- 支持 `go-redis` 日志并打印 Trace ID，目前只支持 `go-redis/v8`, 后续会增加对 `go-redis/v9` 的支持
+- 提供 `gin` 的日志中间件，支持通过配置自定义记录 `TraceId` `context keys` `Request Header` `Request Form` `Request Body` `Response Body` 以及其他的 HTTP 请求信息
+- 支持 `Gorm`，记录 `TraceId` `请求时间` `SQL` `慢 SQL` `ERR`
+- 支持 `go-redis` 记录 `TraceId` `redis 命令` `请求结果` `耗时` `慢请求` `pipline`，目前只支持 `go-redis/v8`, 后续会增加对 `go-redis/v9` 的支持
 - 支持将日志保存到文件并自动 rotate
 - 支持自定义 logger Encoder 配置
 
