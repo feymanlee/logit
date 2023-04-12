@@ -8,7 +8,6 @@
 package logit
 
 import (
-	"os"
 	"testing"
 
 	"go.uber.org/zap"
@@ -39,10 +38,4 @@ func TestLumberjackSink(t *testing.T) {
 	}
 
 	logger.Info("Hello, lumberjack!")
-
-	// Clean up the test log file
-	err = os.Remove(filename)
-	if err != nil {
-		t.Fatalf("failed to remove test log file: %v", err)
-	}
 }
