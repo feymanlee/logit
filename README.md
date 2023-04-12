@@ -4,6 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/feymanlee/logit)](https://goreportcard.com/report/github.com/feymanlee/logit)
 [![Unit-Tests](https://github.com/feymanlee/logit/workflows/Unit-Tests/badge.svg)](https://github.com/feymanlee/logit/actions)
 [![Coverage Status](https://coveralls.io/repos/github/feymanlee/logit/badge.svg?branch=main)](https://coveralls.io/github/feymanlee/logit?branch=main)
+[![Go Reference](https://pkg.go.dev/badge/github.com/feymanlee/logit.svg)](https://pkg.go.dev/github.com/feymanlee/logit)
 
 logit 简单封装了在日常使用 [zap](https://github.com/uber-go/zap) 打日志时的常用方法。
 
@@ -20,6 +21,10 @@ logit 简单封装了在日常使用 [zap](https://github.com/uber-go/zap) 打�
 logit 只提供 zap 使用时的常用方法汇总，不是对 zap 进行二次开发，拒绝过度封装。
 
 ## 开箱即用
+
+```shell
+go get github.com/feymanlee/logit
+```
 
 在 `logit` 被 import 时，会生成内部使用的默认 logger 。
 默认 logger 使用 JSON 格式打印日志内容到 stderr 。
@@ -64,6 +69,7 @@ logit.Debug(c, "extra fields demo", logit.ExtraField("k1", "v1", "k2", 2, "k3", 
 **详细示例 [example/logit.go](_example/logit.go)**
 
 ## 替换默认 logger
+
 ```go
 // 默认的 logit 全局开箱即用的方法（如： logit.Debug , logit.Debugf 等）都是使用默认 logger 执行的，
 // 再使用 ReplaceLogger 方法替换默认 logger 为新的 logger 来解决。
@@ -122,6 +128,7 @@ func main() {
 ## 日志保存到文件并自动 rotate
 
 使用 lumberjack 将日志保存到文件并 rotate.
+
 ```go
 package main
 
