@@ -290,7 +290,7 @@ func main() {
 		DisableStacktrace:   false,                                    // 禁用 Stacktrace
 		EncoderConfig:       nil,
 	}
-	app.Use(logit.GinLoggerWithConfig(conf))
+	app.Use(logit.NewGinLogger(conf))
 	app.POST("/ping", func(c *gin.Context) {
 		// panic("xx")
 		// time.Sleep(300 * time.Millisecond)

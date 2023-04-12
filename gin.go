@@ -188,6 +188,16 @@ func defaultGinTraceIDFunc(c *gin.Context) (traceID string) {
 }
 
 //
+// NewGinLogger
+//  @Description: alias for GinLoggerWithConfig
+//  @param conf
+//  @return gin.HandlerFunc
+//
+func NewGinLogger(conf GinLoggerConfig) gin.HandlerFunc {
+	return GinLoggerWithConfig(conf)
+}
+
+//
 // GinLoggerWithConfig
 //  @Description:  根据配置信息生成 gin 的 Logger 中间件
 // 中间件会记录访问信息，根据状态码确定日志级别， 500 以上为 Error ， 400-500 默认为 Warn ， 400 以下默认为 Info
