@@ -17,7 +17,6 @@ func main() {
 
 	/* 使用 Options 创建 logger */
 	// 可以直接使用空 Options 创建默认配置项的 logger
-	// 不支持 sentry 和 http 动态修改日志级别，日志输出到 stderr
 	emptyOptionsLogger, _ := logit.NewLogger(logit.Options{})
 	emptyOptionsLogger.Debug("emptyOptionsLogger")
 	// Output:

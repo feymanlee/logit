@@ -14,16 +14,11 @@ import (
 // LumberjackSink 将日志输出到 lumberjack 进行 rotate
 type LumberjackSink struct {
 	*lumberjack.Logger
-	Scheme string
 }
 
 // Sync lumberjack Logger 默认已实现 Sink 的其他方法，这里实现 Sync 后就成为一个 Sink 对象
 func (LumberjackSink) Sync() error {
 	return nil
-}
-
-func RegisterLumberjackSink(sink *LumberjackSink) error {
-	return RegisterSink(sink.Scheme, sink)
 }
 
 // RegisterSink 注册 lumberjack sink
@@ -48,7 +43,7 @@ func RegisterSink(scheme string, sink zap.Sink) error {
 //  @param localtime 是否采用本地时间
 //  @return *LumberjackSink
 //
-func NewLumberjackSink(scheme, filename string, maxAge, maxBackups, maxSize int, compress, localtime bool) *LumberjackSink {
+func NewLumberjackSink(filename string, maxAge, maxBackups, maxSize int, compress, localtime bool) *LumberjackSink {
 	return &LumberjackSink{
 		Logger: &lumberjack.Logger{
 			Filename:   filename,
@@ -58,6 +53,5 @@ func NewLumberjackSink(scheme, filename string, maxAge, maxBackups, maxSize int,
 			Compress:   compress,
 			LocalTime:  localtime,
 		},
-		Scheme: scheme,
 	}
 }

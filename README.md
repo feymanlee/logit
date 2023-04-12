@@ -64,6 +64,43 @@ logit.Debug(c, "extra fields demo", logit.ExtraField("k1", "v1", "k2", 2, "k3", 
 **详细示例 [example/logit.go](_example/logit.go)**
 
 ## 替换默认 logger
+```go
+// 默认的 logit 全局开箱即用的方法（如： logit.Debug , logit.Debugf 等）都是使用默认 logger 执行的，
+// 再使用 ReplaceLogger 方法替换默认 logger 为新的 logger 来解决。
+package main
+
+import (
+	"github.com/feymanlee/logit"
+)
+
+func main() {
+	logit.Info(nil, "aaaa")
+	// 默认 logger 输出到 stderr，不会输出日志到文件
+	// Output:
+	// {"level":"ERROR","time":"2020-04-15 20:09:23.661457","logger":"logit.ctx_logger","msg":"aaaa","pid":73847}
+	// 创建一个支持 lumberjack 的 logger
+	options := logit.Options{
+		Name:        "replacedLogger",
+		OutputPaths: []string{"stderr", "lumberjack:"},
+	}
+	logger, _ := logit.NewLogger(options)
+	// 替换默认 logger
+	resetLogger := logit.ReplaceLogger(logger)
+
+	logit.Error(nil, "ReplaceLogger")
+	// Output并保存到文件:
+	// {"level":"ERROR","time":"2020-04-15 20:09:23.661927","logger":"replacedLogger.ctx_logger","caller":"logit/global.go:Error:166","msg":"ReplaceLogger","pid":73847,"stacktrace":"github.com/axiaoxin-com/logit.Error\n\t/Users/ashin/go/src/logit/global.go:166\nmain.main\n\t/Users/ashin/go/src/logit/example/replace.go:30\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:203"}
+
+	// 恢复为默认 logger
+	resetLogger()
+
+	// 全局方法将恢复使用原始的 logger
+	logit.Error(nil, "ResetLogger")
+	// Output:
+	// {"level":"ERROR","time":"2020-04-15 20:09:23.742995","logger":"logit.ctx_logger","msg":"ResetLogger","pid":73847}
+}
+
+```
 
 **示例 [example/replace.go](_example/replace.go)**
 
@@ -93,8 +130,8 @@ import "github.com/feymanlee/logit"
 // Options 传入 LumberjacSink ，并在 OutputPaths 中添加对应 scheme 就能将日志保存到文件并自动 rotate
 func main() {
 	// scheme 为 lumberjack ，日志文件为 /tmp/x.log , 保存 7 天，保留 10 份文件，文件大小超过 100M ，使用压缩备份，压缩文件名使用 localtime
-	sink := logit.NewLumberjackSink("lumberjack", "/tmp/x.log", 7, 10, 100, true, true)
-	err := logit.RegisterLumberjackSink(sink)
+	sink := logit.NewLumberjackSink("/tmp/x.log", 7, 10, 100, true, true)
+	err := logit.RegisterSink("lumberjack", sink)
 	if err != nil {
 		panic(err)
 	}
@@ -105,8 +142,8 @@ func main() {
 	logger, _ := logit.NewLogger(options)
 	logger.Debug("xxx")
 
-	sink2 := logit.NewLumberjackSink("lumberjack2", "/tmp/x2.log", 7, 10, 100, true, true)
-	err = logit.RegisterLumberjackSink(sink2)
+	sink2 := logit.NewLumberjackSink("/tmp/x2.log", 7, 10, 100, true, true)
+	err = logit.RegisterSink("lumberjack2", sink2)
 	if err != nil {
 		panic(err)
 	}
