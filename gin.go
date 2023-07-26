@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -21,31 +19,6 @@ const (
 	defaultGinLoggerName = "access"
 	// 默认慢请求时间 3s
 	defaultGinSlowThreshold = time.Second * 3
-	// prometheus namespace
-	promNamespace = "logit"
-)
-
-var (
-	// gin prometheus labels
-	promGinLabels = []string{
-		"status_code",
-		"path",
-		"method",
-	}
-	promGinReqCount = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: promNamespace,
-			Name:      "req_count",
-			Help:      "gin server request count",
-		}, promGinLabels,
-	)
-	promGinReqLatency = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: promNamespace,
-			Name:      "req_latency",
-			Help:      "gin server request latency in seconds",
-		}, promGinLabels,
-	)
 )
 
 //
@@ -348,11 +321,6 @@ func GinLoggerWithConfig(conf GinLoggerConfig) gin.HandlerFunc {
 			} else {
 				log(formatter(c, ginLogExtends))
 			}
-
-			// update prometheus info
-			labels := []string{fmt.Sprint(c.Writer.Status()), c.Request.URL.Path, c.Request.Method}
-			promGinReqCount.WithLabelValues(labels...).Inc()
-			promGinReqLatency.WithLabelValues(labels...).Observe(ginLogExtends.Latency)
 		}()
 
 		c.Next()
