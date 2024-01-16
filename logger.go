@@ -4,7 +4,6 @@
 //
 // 提供多种快速创建 baseLogger 的方法
 //
-//
 // 支持从 context.Context/gin.Context 中创建、获取带有 Trace ID 的 baseLogger
 package logit
 

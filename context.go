@@ -21,13 +21,12 @@ const (
 	TraceIDKeyName CtxKey = "trace_id"
 )
 
-//
 // CtxLogger
-//  @Description: get the ctxLogger in context
-//  @param c
-//  @param fields
-//  @return *zap.Logger
 //
+//	@Description: get the ctxLogger in context
+//	@param c
+//	@param fields
+//	@return *zap.Logger
 func CtxLogger(c context.Context, fields ...zap.Field) *zap.Logger {
 	if c == nil {
 		c = context.Background()
@@ -81,15 +80,14 @@ func CtxTraceID(c context.Context) string {
 	return xid.New().String()
 }
 
-//
 // NewCtxLogger
-//  @Description: return a context with baseLogger and trace id and a baseLogger with trace id
-//  @param c
-//  @param logger
-//  @param traceID
-//  @return context.Context
-//  @return *zap.Logger
 //
+//	@Description: return a context with baseLogger and trace id and a baseLogger with trace id
+//	@param c
+//	@param logger
+//	@param traceID
+//	@return context.Context
+//	@return *zap.Logger
 func NewCtxLogger(c context.Context, logger *zap.Logger, traceID string) (context.Context, *zap.Logger) {
 	if c == nil {
 		c = context.Background()
@@ -99,10 +97,16 @@ func NewCtxLogger(c context.Context, logger *zap.Logger, traceID string) (contex
 	}
 	ctxLogger := logger.With(zap.String(string(TraceIDKeyName), traceID))
 	if gc, ok := c.(*gin.Context); ok {
+		// set ctxlogger in gin.Context
+		gc.Set(string(CtxLoggerName), ctxLogger)
 		// set traceID in gin.Context
 		gc.Set(string(TraceIDKeyName), traceID)
+	} else {
+		// set ctxlogger in context.Context
+		c = context.WithValue(c, CtxLoggerName, ctxLogger)
+		// set traceID in context.Context
+		c = context.WithValue(c, TraceIDKeyName, traceID)
 	}
-	// set traceID in context.Context
-	c = context.WithValue(c, TraceIDKeyName, traceID)
+
 	return c, ctxLogger
 }
