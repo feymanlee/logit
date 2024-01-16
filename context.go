@@ -51,6 +51,15 @@ func CtxLogger(c context.Context, fields ...zap.Field) *zap.Logger {
 	return ctxLogger
 }
 
+func SetContextLogger(c context.Context, logger *zap.Logger) context.Context {
+	if gc, ok := c.(*gin.Context); ok {
+		gc.Set(string(CtxLoggerName), logger)
+	} else {
+		c = context.WithValue(c, CtxLoggerName, logger)
+	}
+	return c
+}
+
 // CtxTraceID get trace id from context
 // Modify TraceIDPrefix change the prefix
 func CtxTraceID(c context.Context) string {
