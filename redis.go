@@ -9,6 +9,7 @@ package logit
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -49,6 +50,8 @@ type RedisLoggerOptions struct {
 	// 配置日志字段 key 的名称
 	// Optional.
 	EncoderConfig *zapcore.EncoderConfig
+	// nil err level
+	NilErrLevel string
 }
 
 type RedisLogger struct {
@@ -57,6 +60,7 @@ type RedisLogger struct {
 	slowThreshold time.Duration
 	callerSkip    int
 	_logger       *zap.Logger
+	nilErrLevel   string
 }
 
 func NewRedisLogger(opt RedisLoggerOptions) (RedisLogger, error) {
@@ -64,6 +68,7 @@ func NewRedisLogger(opt RedisLoggerOptions) (RedisLogger, error) {
 		name:          defaultRedisLoggerName,
 		callerSkip:    defaultRedisLoggerCallerSkip,
 		slowThreshold: defaultSlowThreshold,
+		nilErrLevel:   opt.NilErrLevel,
 	}
 	if opt.CallerSkip != 0 {
 		l.callerSkip = opt.CallerSkip
@@ -88,27 +93,25 @@ func NewRedisLogger(opt RedisLoggerOptions) (RedisLogger, error) {
 	return l, err
 }
 
-//
 // CtxLogger
-//  @Description: 创建打印日志的 ctx logger
-//  @receiver l
-//  @param ctx
-//  @return *zap.Logger
 //
+//	@Description: 创建打印日志的 ctx logger
+//	@receiver l
+//	@param ctx
+//	@return *zap.Logger
 func (l RedisLogger) CtxLogger(ctx context.Context) *zap.Logger {
 	_, ctxLogger := NewCtxLogger(ctx, l._logger, "")
 	return ctxLogger.WithOptions(zap.AddCallerSkip(l.callerSkip))
 }
 
-//
 // BeforeProcess
-//  @Description: 实现 go-redis HOOK BeforeProcess 方法
-//  @receiver l
-//  @param ctx
-//  @param cmd
-//  @return context.Context
-//  @return error
 //
+//	@Description: 实现 go-redis HOOK BeforeProcess 方法
+//	@receiver l
+//	@param ctx
+//	@param cmd
+//	@return context.Context
+//	@return error
 func (l RedisLogger) BeforeProcess(ctx context.Context, cmd redis.Cmder) (context.Context, error) {
 	if gc, ok := ctx.(*gin.Context); ok {
 		// set start time in gin.Context
@@ -119,19 +122,25 @@ func (l RedisLogger) BeforeProcess(ctx context.Context, cmd redis.Cmder) (contex
 	return context.WithValue(ctx, ctxRedisStartKey, time.Now()), nil
 }
 
-//
 // AfterProcess
-//  @Description: 实现 go-redis HOOK AfterProcess 方法
-//  @receiver l
-//  @param ctx
-//  @param cmd
-//  @return error
 //
+//	@Description: 实现 go-redis HOOK AfterProcess 方法
+//	@receiver l
+//	@param ctx
+//	@param cmd
+//	@return error
 func (l RedisLogger) AfterProcess(ctx context.Context, cmd redis.Cmder) error {
 	logger := l.CtxLogger(ctx)
 	cost := l.getCost(ctx)
 	if err := cmd.Err(); err != nil {
-		logger.Error("redis trace", zap.String("command", cmd.FullName()), zap.String("args", cmd.String()), zap.Float64("latency_ms", cost), zap.Error(err))
+		level := zap.ErrorLevel
+		if errors.Is(err, redis.Nil) {
+			var err1 error
+			if level, err1 = zapcore.ParseLevel(l.nilErrLevel); err1 != nil {
+				level = zap.ErrorLevel
+			}
+		}
+		logger.Log(level, "redis trace", zap.String("command", cmd.FullName()), zap.String("args", cmd.String()), zap.Float64("latency_ms", cost), zap.Error(err))
 	} else {
 		log := logger.Info
 		if cost > float64(l.slowThreshold) {
@@ -142,15 +151,14 @@ func (l RedisLogger) AfterProcess(ctx context.Context, cmd redis.Cmder) error {
 	return nil
 }
 
-//
 // BeforeProcessPipeline
-//  @Description:
-//  @receiver l
-//  @param ctx
-//  @param cmds
-//  @return context.Context
-//  @return error
 //
+//	@Description:
+//	@receiver l
+//	@param ctx
+//	@param cmds
+//	@return context.Context
+//	@return error
 func (l RedisLogger) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmder) (context.Context, error) {
 	if gc, ok := ctx.(*gin.Context); ok {
 		// set start time in gin.Context
@@ -161,14 +169,13 @@ func (l RedisLogger) BeforeProcessPipeline(ctx context.Context, cmds []redis.Cmd
 	return context.WithValue(ctx, ctxRedisStartKey, time.Now()), nil
 }
 
-//
 // AfterProcessPipeline
-//  @Description: 实现 go-redis HOOK AfterProcessPipeline 方法
-//  @receiver l
-//  @param ctx
-//  @param cmds
-//  @return error
 //
+//	@Description: 实现 go-redis HOOK AfterProcessPipeline 方法
+//	@receiver l
+//	@param ctx
+//	@param cmds
+//	@return error
 func (l RedisLogger) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmder) error {
 	logger := l.CtxLogger(ctx)
 	cost := l.getCost(ctx)
@@ -188,13 +195,12 @@ func (l RedisLogger) AfterProcessPipeline(ctx context.Context, cmds []redis.Cmde
 	return nil
 }
 
-//
 // getCost
-//  @Description: 获取命令执行耗时
-//  @receiver l
-//  @param ctx
-//  @return cost
 //
+//	@Description: 获取命令执行耗时
+//	@receiver l
+//	@param ctx
+//	@return cost
 func (l RedisLogger) getCost(ctx context.Context) (cost float64) {
 	var startTime time.Time
 	if gc, ok := ctx.(*gin.Context); ok {

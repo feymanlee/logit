@@ -4,11 +4,13 @@ package logit
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/axiaoxin-com/goutils"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
@@ -42,6 +44,8 @@ type GormLoggerOptions struct {
 	// 配置日志字段 key 的名称
 	// Optional.
 	EncoderConfig *zapcore.EncoderConfig
+	// RecordNotFoundErr 错误等级
+	RecordNotFoundErrLevel string
 }
 
 // GormLogger 使用 zap 来打印 gorm 的日志
@@ -52,8 +56,9 @@ type GormLogger struct {
 	// 日志级别
 	logLevel zapcore.Level
 	// 指定慢查询时间
-	slowThreshold time.Duration
-	_logger       *zap.Logger
+	slowThreshold          time.Duration
+	_logger                *zap.Logger
+	recordNotFoundErrLevel string
 }
 
 var gormLogLevelMap = map[gormlogger.LogLevel]zapcore.Level{
@@ -109,7 +114,14 @@ func (g GormLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 	l := g.CtxLogger(ctx).Named("sql")
 	switch {
 	case err != nil:
-		l.Error("sql trace", zap.String("sql", sql), zap.Float64("latency", latency), zap.Int64("rows", rows), zap.String("error", err.Error()))
+		level := zap.ErrorLevel
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			var err1 error
+			if level, err1 = zapcore.ParseLevel(g.recordNotFoundErrLevel); err1 != nil {
+				level = zap.ErrorLevel
+			}
+		}
+		l.Log(level, "sql trace", zap.String("sql", sql), zap.Float64("latency", latency), zap.Int64("rows", rows), zap.String("error", err.Error()))
 	case g.slowThreshold != 0 && latency > g.slowThreshold.Seconds():
 		l.Warn("sql trace[slow]", zap.String("sql", sql), zap.Float64("latency", latency), zap.Int64("rows", rows), zap.Float64("threshold", g.slowThreshold.Seconds()))
 	default:
@@ -117,19 +129,19 @@ func (g GormLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 	}
 }
 
-//
 // NewGormLogger
-//  @Description: 创建实现了 gorm logger interface 的 logger
-//  @param opt
-//  @return GormLogger
-//  @return error
 //
+//	@Description: 创建实现了 gorm logger interface 的 logger
+//	@param opt
+//	@return GormLogger
+//	@return error
 func NewGormLogger(opt GormLoggerOptions) (GormLogger, error) {
 	l := GormLogger{
-		name:          GormLoggerName,
-		callerSkip:    GormLoggerCallerSkip,
-		logLevel:      opt.LogLevel,
-		slowThreshold: opt.SlowThreshold,
+		name:                   GormLoggerName,
+		callerSkip:             GormLoggerCallerSkip,
+		logLevel:               opt.LogLevel,
+		slowThreshold:          opt.SlowThreshold,
+		recordNotFoundErrLevel: opt.RecordNotFoundErrLevel,
 	}
 	if opt.Name != "" {
 		l.name = opt.Name
