@@ -7,8 +7,8 @@ package logit
 import (
 	"net/url"
 
-	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // LumberjackSink 将日志输出到 lumberjack 进行 rotate
@@ -31,18 +31,17 @@ func RegisterSink(scheme string, sink zap.Sink) error {
 	})
 }
 
-//
 // NewLumberjackSink
-//  @Description: 创建 LumberjackSink 对象
-//  @param scheme sink scheme
-//  @param filename 文件名称
-//  @param maxAge 最大生命周期
-//  @param maxBackups 最多保留文件个数
-//  @param maxSize 单个文件最大 size
-//  @param compress 是否压缩
-//  @param localtime 是否采用本地时间
-//  @return *LumberjackSink
 //
+//	@Description: 创建 LumberjackSink 对象
+//	@param scheme sink scheme
+//	@param filename 文件名称
+//	@param maxAge 最大生命周期
+//	@param maxBackups 最多保留文件个数
+//	@param maxSize 单个文件最大 size
+//	@param compress 是否压缩
+//	@param localtime 是否采用本地时间
+//	@return *LumberjackSink
 func NewLumberjackSink(filename string, maxAge, maxBackups, maxSize int, compress, localtime bool) *LumberjackSink {
 	return &LumberjackSink{
 		Logger: &lumberjack.Logger{
