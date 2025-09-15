@@ -36,6 +36,7 @@ type Options struct {
 	DisableCaller     bool                   // 是否关闭打印 caller
 	DisableStacktrace bool                   // 是否关闭打印 stackstrace
 	EncoderConfig     *zapcore.EncoderConfig // 配置日志字段 key 的名称
+	Sampling          *zap.SamplingConfig    // 配置日志字段 key 的名称
 }
 
 const (
@@ -137,11 +138,14 @@ func NewLogger(options Options) (*zap.Logger, error) {
 	} else {
 		cfg.EncoderConfig = *options.EncoderConfig
 	}
-
 	// Sampling 实现了日志的流控功能，或者叫采样配置，主要有两个配置参数， Initial 和 Thereafter ，实现的效果是在 1s 的时间单位内，如果某个日志级别下同样内容的日志输出数量超过了 Initial 的数量，那么超过之后，每隔 Thereafter 的数量，才会再输出一次。是一个对日志输出的保护功能。
-	cfg.Sampling = &zap.SamplingConfig{
-		Initial:    100,
-		Thereafter: 100,
+	if options.Sampling == nil {
+		cfg.Sampling = &zap.SamplingConfig{
+			Initial:    100,
+			Thereafter: 100,
+		}
+	} else {
+		cfg.Sampling = options.Sampling
 	}
 
 	var err error
